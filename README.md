@@ -6,9 +6,6 @@
 
 - **Stratified Splitting** by career level (Junior/Senior/Lead)
 - **Greedy Diversity Optimization** across job areas (Engineering/Product/Design)
-- **Pipeline Automation** from participant input to meeting scheduling
-- **Reporting Tools** for diversity metrics and participation tracking
-- **CI/CD Integration** for automated batch processing
 
 ## Installation
 
