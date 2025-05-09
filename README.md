@@ -42,3 +42,35 @@ STRATIFICATION_FIELDS=career_level,job_area
 6. **Notifications** - Email/Slack reminders with participant bios
 7. **Automated Outputs** - Export results as ICS calendars and CSV reports
 
+## Group Generation Methodology
+
+Our algorithm maximizes diversity across career levels (positions) and job sectors using combinatorial optimization. Here's how it works:
+
+### Key Steps:
+1. **Data Preparation**
+   - Filter participants with valid position categories
+   - Calculate rarity scores for each participant based on:
+     - Position frequency (`1 / number_of_similar_positions`)
+     - Sector frequency (`1 / number_of_similar_sectors`)
+
+2. **Optimal Assignment**
+   - Create a cost matrix where pairing participants with similar positions/sectors incurs high penalties
+   - Position mismatch penalty: 100
+   - Sector mismatch penalty: 33 (position is 3x more important)
+   - Solve using OR-Tools' Linear Sum Assignment for minimal total cost
+
+3. **Group Formation**
+   - Create base groups from optimized assignment
+   - Handle remainder participants (when total % group_size ≠ 0) by:
+     - Identifying rarest participants using precomputed rarity scores
+     - Assigning each rare participant to the group where they add maximum diversity
+
+### Diversity Metrics:
+- **Position Diversity:** Number of unique career levels per group
+- **Sector Diversity:** Number of unique job sectors per group
+
+### Example:
+For 10 participants (3 Senior, 4 Mid, 3 Student) with group_size=4:
+- Groups: 4, 3, 3
+- Senior participants distributed across groups first
+- Remainder Mid/Student added to maximize sector diversity
