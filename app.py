@@ -260,14 +260,13 @@ def main():
 
             # Format output with original columns
             output_data = []
-            for group in result['groups']:
-                for member in group['Members']:
-                    output_data.append([
-                        member[name_col],
-                        member[email_col],
-                        member[position_col],
-                        f"Group {group['GroupID']}"
-                    ])
+            for _, row in result['df'].iterrows():
+                output_data.append([
+                    row[name_col],
+                    row[email_col],
+                    row[position_col],
+                    row['Group']
+                ])
 
             output_df = pd.DataFrame(
                 output_data,
@@ -275,7 +274,7 @@ def main():
             )
 
             # Display results
-            st.success(f"Created {len(result['groups'])} groups!")
+            st.success(f"Created {len(result['df']['Group'].unique())} groups!")
             st.download_button(
                 label="Download Assignments",
                 data=output_df.to_csv(index=False),
