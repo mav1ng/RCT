@@ -63,6 +63,12 @@ class GroupProcessor:
             participants_sorted = sorted(participants_with_rarity, key=lambda x: -x[1])
             sorted_indices = [i for i, (p, _) in enumerate(participants_sorted)]
 
+            # Log optimization order
+            print(f"Optimized participant order:")
+            for idx in sorted_indices:
+                p = participants[idx]
+                print(f"- {p[self.name_col]} ({p[self.position_col]}, {p[self.job_sector_col]})")
+
             # Build cost matrix
             num_participants = len(participants)
             cost_matrix = np.zeros((num_participants, num_participants))
@@ -102,64 +108,82 @@ class GroupProcessor:
             if solve_status != assignment.OPTIMAL:
                 raise RuntimeError("Optimal assignment not found")
 
-            # Form groups from assignment
+            # Form base groups
             groups = []
-            group_size = self.group_size
-            
-            # Get optimal assignment order
-            sorted_indices = []
-            for i in range(assignment.num_nodes()):
-                sorted_indices.append(assignment.right_mate(i))
-            
-            # Create groups in optimized order
-            for i in range(0, len(sorted_indices), group_size):
-                group_indices = sorted_indices[i:i+group_size]
+            for i in range(0, len(sorted_indices), self.group_size):
+                group_indices = sorted_indices[i:i+self.group_size]
                 group_members = [participants[idx] for idx in group_indices]
-                
                 groups.append({
                     'Group ID': f"Group-{len(groups)+1}",
                     'Members': group_members
                 })
-
-            # Calculate remainder
-            remainder = len(participants) % group_size
-
-            # Assign remainders to maximize diversity
+                print(f"Formed base group {len(groups)} with {len(group_members)} members")
+            
+            # Handle remainders
+            remainder = len(sorted_indices) % self.group_size
             if remainder > 0:
-                # Get rarest members
-                rare_members = [participants[idx] for idx in sorted_indices[:remainder]]
+                remainders = sorted_indices[-remainder:]
+                print(f"Distributing {remainder} remainders:")
                 
-                # Assign each rare member to the group where they add most diversity
-                for rare in rare_members:
+                # Remove remainders from base groups first
+                for idx in remainders:
+                    member = participants[idx]
+                    for group in groups:
+                        if member in group['Members']:
+                            group['Members'].remove(member)
+                            print(f"Removed {member[self.name_col]} from {group['Group ID']}")
+                            break
+                
+                # Remove empty groups
+                groups = [group for group in groups if len(group['Members']) > 0]
+                
+                # Now assign to best groups
+                for idx in remainders:
+                    member = participants[idx]
+                    print(f"Processing remainder: {member[self.name_col]} ({member[self.position_col]}, {member[self.job_sector_col]})")
                     best_group = None
                     best_score = -1
+                    
+                    # Find group that gains most diversity
                     for group in groups:
-                        current_pos = set(m[self.position_col] for m in group['Members'])
-                        current_sec = set(m[self.job_sector_col] for m in group['Members'])
+                        # Skip groups already at capacity
+                        if len(group['Members']) >= self.group_size + 1:
+                            continue
                         
-                        new_pos = current_pos.union({rare[self.position_col]})
-                        new_sec = current_sec.union({rare[self.job_sector_col]})
+                        current_pos = {m[self.position_col] for m in group['Members']}
+                        current_sec = {m[self.job_sector_col] for m in group['Members']}
+                        
+                        new_pos = current_pos.union({member[self.position_col]})
+                        new_sec = current_sec.union({member[self.job_sector_col]})
                         
                         score = (len(new_pos) - len(current_pos)) * 100 + \
                                 (len(new_sec) - len(current_sec)) * 33
+                        
+                        # Prefer groups that are smaller
+                        size_penalty = (self.group_size + 1 - len(group['Members'])) * 10
+                        score += size_penalty
+                        
                         if score > best_score:
                             best_score = score
                             best_group = group
                     
-                    best_group['Members'].append(rare)
-
+                    # Add to best group
+                    if best_group:
+                        best_group['Members'].append(member)
+                        print(f"Added to group {best_group['Group ID']} (score +{best_score})")
+                
             # Build output DataFrame
             output_data = []
             for group in groups:
                 for member in group['Members']:
                     output_data.append({
-                        'Group': group['Group ID'],
-                        self.name_col: member[self.name_col],
-                        self.email_col: member[self.email_col],
-                        self.position_col: member[self.position_col],
-                        self.job_sector_col: member[self.job_sector_col]
+                        'Group ID': group['Group ID'],
+                        'Name': member[self.name_col],
+                        'Position': member[self.position_col],
+                        'Sector': member[self.job_sector_col],
+                        'Email': member[self.email_col]
                     })
-
+            
             output_df = pd.DataFrame(output_data)
 
             return {
