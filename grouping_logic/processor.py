@@ -63,24 +63,19 @@ class GroupProcessor:
                 group = participants.iloc[i:i + self.group_size]
                 groups.append({
                     'Group ID': f"Group-{len(groups) + 1}",
-                    'Members': list(zip(
-                        group[self.name_col],
-                        group[self.email_col],
-                        group[self.position_col],
-                        group[self.job_sector_col]
-                    ))
+                    'Members': group[[self.name_col, self.email_col, self.position_col, self.job_sector_col]].to_dict('records')
                 })
 
             # Build output DataFrame
             output_data = []
             for group in groups:
-                for name, email, position, job_sector in group['Members']:
+                for member in group['Members']:
                     output_data.append({
                         'Group': group['Group ID'],
-                        self.name_col: name,
-                        self.email_col: email,
-                        self.position_col: position,
-                        self.job_sector_col: job_sector
+                        self.name_col: member[self.name_col],
+                        self.email_col: member[self.email_col],
+                        self.position_col: member[self.position_col],
+                        self.job_sector_col: member[self.job_sector_col]
                     })
 
             output_df = pd.DataFrame(output_data)

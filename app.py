@@ -265,12 +265,13 @@ def main():
                     row[name_col],
                     row[email_col],
                     row[position_col],
+                    row[job_sector_col],
                     row['Group']
                 ])
 
             output_df = pd.DataFrame(
                 output_data,
-                columns=['Name', 'Email', 'Position', 'Group']
+                columns=['Name', 'Email', 'Position', 'Job Sector', 'Group']
             )
 
             # Display results
