@@ -248,20 +248,30 @@ class Processor:
         sectors = set(m[self.job_sector_col] for m in group_members)
         score = 0
         if candidate[self.position_col] not in positions:
-            score += 100
+            score += 120
         if candidate[self.job_sector_col] not in sectors:
-            score += 50
+            score += 40
         return score
 
     def group_diversity_score(self, group):
         """
-        Diversity score for a group: +100 per unique position, -50 per duplicate position.
+        Diversity score for a group: 
+        +120 per unique position, -60 per duplicate
+        +60 per unique sector, -20 per duplicate
         """
         members = group['Members']
         positions = [m[self.position_col] for m in members]
-        unique_positions = len(set(positions))
-        duplicates = len(positions) - unique_positions
-        return unique_positions * 100 - duplicates * 50
+        sectors = [m[self.job_sector_col] for m in members]
+        
+        unique_pos = len(set(positions))
+        pos_dupes = len(positions) - unique_pos
+        pos_score = unique_pos * 120 - pos_dupes * 60
+        
+        unique_sec = len(set(sectors))
+        sec_dupes = len(sectors) - unique_sec
+        sec_score = unique_sec * 60 - sec_dupes * 20
+        
+        return pos_score + sec_score
 
     def total_diversity_score(self, groups):
         return sum(self.group_diversity_score(g) for g in groups)

@@ -340,3 +340,24 @@ def test_assignment_method_labels(sample_data):
     assert greedy.isdisjoint(leftover)
     # All rows are labeled
     assert len(df) == len(stratified | greedy | leftover)
+
+def test_group_score_with_sectors():
+    processor = Processor(
+        pd.DataFrame({
+            'Position_Category': ['A', 'A', 'B'],
+            'Job_Sector': ['X', 'Y', 'X'],
+            'Name': ['Test1', 'Test2', 'Test3'],  # Required column
+            'Email': ['t1@test.com', 't2@test.com', 't3@test.com']  # Required column
+        }),
+        group_size=3,
+        position_col='Position_Category',
+        job_sector_col='Job_Sector',
+        seed=42
+    )
+    members = [
+        {processor.position_col: 'A', processor.job_sector_col: 'X'},
+        {processor.position_col: 'A', processor.job_sector_col: 'Y'},
+        {processor.position_col: 'B', processor.job_sector_col: 'X'}
+    ]
+    score = processor.group_diversity_score({'Members': members})
+    assert score == 280  # Updated for new weights

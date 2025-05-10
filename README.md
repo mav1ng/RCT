@@ -1,11 +1,64 @@
-# Randomized Coffee Trials (RCT) Automation
+# RCT Group Optimizer
 
-**Automated pipeline for optimizing team diversity and career-level representation in coffee trial events**
+Web app for creating participant groups with optimal diversity and size balance.
 
-## Key Features
+## Features
+- **Stratified Grouping**: Preserve position category ratios using scikit-learn
+- **Greedy Optimization**: Maximize diversity scores through iterative placement
+- **Multi-Trial Runs**: Test 10+ configurations with different random seeds
+- **Automated Validation**: Ensure group sizes in [n, n+1] range
+- **Excel Reports**: Export results with assignment methodology tracking
 
-- **Stratified Splitting** by career level (Junior/Senior/Lead)
-- **Greedy Diversity Optimization** across job areas (Engineering/Product/Design)
+## Diversity Scoring
+```python
+# Position diversity (primary optimization factor)
++120 per unique position | -60 per duplicate
+
+# Sector diversity (secondary optimization factor)
++60 per unique job sector | -20 per duplicate
+```
+
+## Group Formation Algorithm
+
+### Optimization Objective
+Maximize total diversity score:
+```math
+TotalScore = Σ_{groups} [PositionScore + SectorScore]
+```
+Where:
+- `PositionScore = 120 × U_p - 60 × D_p`  
+  (U_p: unique positions, D_p: duplicate positions)
+- `SectorScore = 60 × U_s - 20 × D_s`  
+  (U_s: unique sectors, D_s: duplicate sectors)
+
+### Multi-Trial Optimization
+```python
+for trial in range(TRIALS):
+    random.seed(trial)  # Deterministic randomness
+    groups = stratified_split()
+    groups = greedy_optimize(groups)
+    groups = swap_optimize(groups)
+    track_best_config(groups)
+```
+
+## Usage
+1. Install requirements:  
+`pip install -r requirements.txt`
+2. Launch app:  
+`streamlit run app.py`
+3. Upload CSV or Excel with columns:
+   - Position_Category
+   - Job_Sector  
+   - Name
+   - Email
+
+## Configuration (app.py)
+```python
+# Customizable parameters if not running in Streamlit
+GROUP_SIZE = 5  # Ideal members per group
+TRIALS = 10     # Number of optimization attempts
+SEED = 42       # Reproducible randomness
+```
 
 ## Installation
 
@@ -23,27 +76,15 @@ Launches an automated pipeline UI that handles:
 3. Automated group assignment
 4. Export results as ICS calendars and CSV reports
 
-## Configuration (`.env`)
-
-```ini
-GROUP_SIZE=4
-MAX_RETRIES=100
-DIVERSITY_WEIGHT=0.7
-STRATIFICATION_FIELDS=career_level,job_area
-```
-
 ## How It Works
 
 1. **Streamlit Interface** - Fully automated web UI handles the complete workflow
 2. **Data Loading** - CSV/Excel input with participant metadata
 3. **Stratification** - Balanced career-level representation per group
-4. **Diversity Optimization** - Greedy algorithm maximizes job-area diversity
+4. **Diversity Optimization** - Greedy algorithm maximizes job-area diversity and position diversity
 5. **Scheduling** - Automated calendar integration for meeting times
 6. **Notifications** - Email/Slack reminders with participant bios
 7. **Automated Outputs** - Export results as ICS calendars and CSV reports
-
-## Features
-- Group assignment using **stratified sampling** and **greedy optimization**
 
 ## Group Formation Process
 
