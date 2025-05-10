@@ -7,7 +7,7 @@ import copy
 
 class Processor:
     def __init__(self, df, group_size=5, num_groups=None, position_col='Position_Category',
-                 name_col='Name', email_col='Email', job_sector_col='Job_Sector'):
+                 name_col='Name', email_col='Email', job_sector_col='Job_Sector', seed=42):
         """
         Initialize group processor with user-specified columns
 
@@ -19,6 +19,7 @@ class Processor:
             name_col: User-selected name column
             email_col: User-selected email column
             job_sector_col: Column name for job sector
+            seed: Random seed for reproducibility
         """
         if position_col not in df.columns:
             raise ValueError(f"Position column '{position_col}' not found in DataFrame")
@@ -42,6 +43,7 @@ class Processor:
         self.name_col = name_col
         self.email_col = email_col
         self.job_sector_col = job_sector_col
+        self.seed = seed
 
     def generate_groups(self):
         """
@@ -81,29 +83,44 @@ class Processor:
             stratified_ids = {m['index'] for g in stratified_groups for m in g['Members']}
             greedy_ids = {m['index'] for g in leftover_groups for m in g['Members']}
             leftover_ids = set()
+            # New: If there is a leftover group with < group_size, reassign those members to groups maximizing diversity
             if leftover_groups:
                 last_group = leftover_groups[-1]
                 if last_group['Group ID'].startswith('Leftover-') and len(last_group['Members']) < self.group_size:
-                    leftover_ids = {m['index'] for m in last_group['Members']}
-                    greedy_ids -= leftover_ids
-
-            result_df = self._format_results(
-                all_groups,
-                stratified_ids=stratified_ids,
-                greedy_ids=greedy_ids,
-                leftover_ids=leftover_ids
-            )
-            total_div_score = self.total_diversity_score(all_groups)
-            swap = self.find_best_swap(all_groups)
-
+                    leftover_members = last_group['Members']
+                    # Remove the leftover group from all_groups and leftover_groups
+                    all_groups = stratified_groups + leftover_groups[:-1]
+                    leftover_groups = leftover_groups[:-1]
+                    # Assign each leftover member to the group (not exceeding group_size+1) maximizing diversity
+                    for member in leftover_members:
+                        best_score = float('-inf')
+                        best_group = None
+                        for group in all_groups:
+                            if len(group['Members']) < self.group_size + 1:
+                                score = self._diversity_score(group['Members'], member)
+                                if score > best_score:
+                                    best_score = score
+                                    best_group = group
+                        if best_group is not None:
+                            best_group['Members'].append(member)
+                            greedy_ids.add(member['index'])
+                        else:
+                            # If all groups are full, just append to the last group
+                            all_groups[-1]['Members'].append(member)
+                            greedy_ids.add(member['index'])
+                    leftover_ids = set()  # All leftovers now assigned
+                    # No leftover group remains
+            # Continue as before
+            result_df = self._format_results(all_groups, stratified_ids=stratified_ids, greedy_ids=greedy_ids, leftover_ids=leftover_ids)
+            total_score = self.total_diversity_score(all_groups)
+            swap_suggestion = self.find_best_swap(all_groups)
             return {
                 'success': True,
-                'message': 'Groups generated successfully',
-                'df': result_df,
                 'groups': all_groups,
+                'df': result_df,
+                'diversity_score': total_score,
+                'swap_suggestion': swap_suggestion,
                 'num_groups': len(all_groups),
-                'diversity_score': total_div_score,
-                'swap_suggestion': swap
             }
         except Exception as e:
             import traceback
@@ -120,8 +137,8 @@ class Processor:
 
     def _greedy_grouping(self, df):
         """
-        Greedy grouping for leftovers. Only create fully filled groups (group_size),
-        then distribute any leftover participants to existing groups (so all groups have size in [group_size, group_size+1]).
+        Greedy grouping for leftovers. Assigns each participant to the group where they maximize the diversity score.
+        Only create fully filled groups (group_size), then distribute any leftover participants to existing groups (so all groups have size in [group_size, group_size+1]).
         If leftovers remain after distributing, create one final group with them (even if < group_size).
         Ensures all participants are assigned.
         """
@@ -129,27 +146,37 @@ class Processor:
             return []
         df = df.copy()
         df['index'] = df.index
-        n = len(df)
-        groups = []
         indices = list(df['index'])
-        i = 0
+        random.Random(self.seed).shuffle(indices)  # Shuffle for fairness
+        groups = []
         group_num = 1
-        # Step 1: Create full groups
-        while i + self.group_size <= n:
-            group_indices = indices[i:i + self.group_size]
-            members = [df[df['index'] == idx].iloc[0].to_dict() for idx in group_indices]
-            groups.append({'Group ID': f"Greedy-{group_num}", 'Members': members})
-            i += self.group_size
+        # Step 1: Create empty groups up to needed size
+        total_needed = len(indices)
+        num_groups = total_needed // self.group_size
+        for _ in range(num_groups):
+            groups.append({'Group ID': f"Greedy-{group_num}", 'Members': []})
             group_num += 1
-        # Step 2: Distribute leftovers to existing groups
-        leftovers = indices[i:]
-        if groups and leftovers:
-            for j, idx in enumerate(leftovers):
-                groups[j % len(groups)]['Members'].append(df[df['index'] == idx].iloc[0].to_dict())
-        elif leftovers:
-            # Not enough for even one full group: create a single leftover group
-            members = [df[df['index'] == idx].iloc[0].to_dict() for idx in leftovers]
-            groups.append({'Group ID': f"Leftover-1", 'Members': members})
+        # Step 2: Greedy assignment for diversity
+        for idx in indices:
+            participant = df[df['index'] == idx].iloc[0].to_dict()
+            # Find the best group to add this participant to (not exceeding group_size+1)
+            best_score = float('-inf')
+            best_group = None
+            for group in groups:
+                if len(group['Members']) < self.group_size:
+                    score = self._diversity_score(group['Members'], participant)
+                    if score > best_score:
+                        best_score = score
+                        best_group = group
+            if best_group is not None:
+                best_group['Members'].append(participant)
+            else:
+                # All groups are full, create a leftover group
+                leftover_group = next((g for g in groups if g['Group ID'].startswith('Leftover-')), None)
+                if leftover_group is None:
+                    leftover_group = {'Group ID': f"Leftover-1", 'Members': []}
+                    groups.append(leftover_group)
+                leftover_group['Members'].append(participant)
         return groups
 
     def _robust_stratified_split(self):
@@ -159,57 +186,59 @@ class Processor:
         Always create groups of size group_size, as long as enough participants are available.
         Returns (groups, assigned_indices)
         """
+        import numpy as np
         if 'index' not in self.df.columns:
             self.df['index'] = self.df.index
         categories = self.df[self.position_col].unique().tolist()
-        n_cats = len(categories)
-        print(f"[DEBUG] Stratified split using position_col='{self.position_col}':")
-        print(self.df[self.position_col].value_counts().to_dict())
-        # Find how many full groups we can make
         cat_counts = [len(self.df[self.df[self.position_col] == cat]) for cat in categories]
-        # Number of groups is limited by total participants and class counts
-        max_groups = min(len(self.df) // self.group_size, min(cat_counts))
-        if max_groups == 0:
-            print("[DEBUG] No groups possible for stratified split (empty class or not enough participants)")
+        min_cat = min(cat_counts)
+        max_total_groups = len(self.df) // self.group_size
+        total_needed = min_cat * self.group_size
+        # Check if stratified split is possible
+        if min_cat == 0 or max_total_groups == 0 or total_needed > len(self.df):
+            print("[DEBUG] No groups possible for stratified split (empty class, not enough participants, or not enough to fill groups)")
             return [], set()
-        groups = [{'Group ID': f"Group-{i+1}", 'Members': []} for i in range(max_groups)]
+        # Each class must have at least min_cat members
+        if any(count < min_cat for count in cat_counts):
+            print("[DEBUG] Not enough members in at least one class for stratified split")
+            return [], set()
+        # 1. Select stratified subset: min_cat * group_size participants, at least min_cat from each class
+        stratified_indices = []
+        for cat in categories:
+            cat_indices = self.df[self.df[self.position_col] == cat]['index'].sample(min_cat, random_state=self.seed).tolist()
+            stratified_indices.extend(cat_indices)
+        if len(stratified_indices) < min_cat * self.group_size:
+            cat_indices = self.df[~self.df['index'].isin(stratified_indices)]['index'].sample(min_cat * self.group_size - len(stratified_indices),
+                                                                                     random_state=self.seed).tolist()
+            stratified_indices.extend(cat_indices)
+        stratified_df = self.df[self.df['index'].isin(stratified_indices)].copy()
+        stratified_df = stratified_df.sample(frac=1, random_state=self.seed).reset_index(drop=True)
+        print(stratified_df)
+        # If not enough for full groups, fallback
+        if len(stratified_df) < total_needed:
+            print("[DEBUG] Not enough stratified participants for full groups")
+            return [], set()
+        from sklearn.model_selection import StratifiedKFold
+        skf = StratifiedKFold(n_splits=min_cat, shuffle=True, random_state=self.seed)
+        groups = []
         assigned_indices = set()
-        # Prepare a pool for each class
-        class_pools = {cat: self.df[(self.df[self.position_col] == cat) & (~self.df['index'].isin(assigned_indices))].copy() for cat in categories}
-        # Prepare a pool for all unassigned
-        all_pool = self.df[~self.df['index'].isin(assigned_indices)].copy()
-        for i in range(max_groups):
-            group_members = []
-            used_this_group = set()
-            # Step 1: Pick one from each class (as many as there are classes)
-            for cat in categories:
-                pool = class_pools[cat][~class_pools[cat]['index'].isin(assigned_indices | used_this_group)]
-                if not pool.empty:
-                    selected = pool.sample(1, random_state=i).iloc[0].to_dict()
-                    group_members.append(selected)
-                    assigned_indices.add(selected['index'])
-                    used_this_group.add(selected['index'])
-            # Step 2: Fill remaining slots
-            while len(group_members) < self.group_size:
-                # Use all remaining unassigned participants
-                all_pool = self.df[~self.df['index'].isin(assigned_indices | used_this_group)]
-                if all_pool.empty:
-                    break
-                # Prefer classes with most remaining members
-                largest_class = all_pool[self.position_col].value_counts().idxmax()
-                pool = all_pool[all_pool[self.position_col] == largest_class]
-                selected = pool.sample(1, random_state=i*10+len(group_members)).iloc[0].to_dict()
-                group_members.append(selected)
-                assigned_indices.add(selected['index'])
-                used_this_group.add(selected['index'])
-            if len(group_members) == self.group_size:
-                groups[i]['Members'] = group_members
-            else:
-                groups[i]['Members'] = []  # Incomplete group, ignore
-        final_groups = [g for g in groups if len(g['Members']) == self.group_size]
-        final_indices = set(idx for g in final_groups for idx in [m['index'] for m in g['Members']])
-        print(f"[DEBUG] Stratified split assigned {len(final_indices)} participants to {len(final_groups)} groups.")
-        return final_groups, final_indices
+        X = np.zeros((len(stratified_df), 1))
+        y = stratified_df[self.position_col].values
+        for group_id, (_, test_idx) in enumerate(skf.split(X, y)):
+            members = stratified_df.iloc[test_idx]
+            if len(members) < self.group_size:
+                continue  # Only full groups
+            group = {
+                'Group ID': f"Group-{group_id+1}",
+                'Members': members.head(self.group_size).to_dict('records')
+            }
+            groups.append(group)
+            assigned_indices.update(members.head(self.group_size)['index'].tolist())
+        # Only return if enough full groups were formed
+        if len(groups) < min_cat:
+            print("[DEBUG] Could not form enough full stratified groups")
+            return [], set()
+        return groups, assigned_indices
 
     def _diversity_score(self, group_members, candidate):
         """
