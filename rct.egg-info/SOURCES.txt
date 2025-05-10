@@ -1,0 +1,8 @@
+README.md
+setup.py
+grouping_logic/__init__.py
+grouping_logic/processor.py
+rct.egg-info/PKG-INFO
+rct.egg-info/SOURCES.txt
+rct.egg-info/dependency_links.txt
+rct.egg-info/top_level.txt

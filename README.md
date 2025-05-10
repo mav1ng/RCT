@@ -42,11 +42,14 @@ STRATIFICATION_FIELDS=career_level,job_area
 6. **Notifications** - Email/Slack reminders with participant bios
 7. **Automated Outputs** - Export results as ICS calendars and CSV reports
 
+## Features
+- Group assignment using **stratified sampling** and **greedy optimization**
+
 ## Group Formation Process
 
 ### Step 1: Base Group Creation
 - **Optimized Sorting:**  
-  Participants are ordered using OR-Tools' linear assignment to minimize:  
+  Participants are ordered to minimize:  
   ```math
   Total Cost = \sum (position\_matches \times 100 + sector\_matches \times 33)
   ```
@@ -60,3 +63,8 @@ STRATIFICATION_FIELDS=career_level,job_area
      - **Position Diversity** (weight: 100)
      - **Sector Diversity** (weight: 33)
      - **Group Size Balance** (prefer less full groups)
+
+## Dependencies
+- pandas
+- numpy
+- scipy

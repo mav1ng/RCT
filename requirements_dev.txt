@@ -1,0 +1,11 @@
+pytest>=7.0.0
+pytest
+pytest-cov
+pytest-mock
+pandas
+numpy
+python-dotenv
+scipy
+matplotlib
+seaborn
+scikit-learn
