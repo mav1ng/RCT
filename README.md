@@ -3,11 +3,11 @@
 Web app for creating participant groups with optimal diversity and size balance.
 
 ## Features
-- **Stratified Grouping**: Preserve position category ratios using scikit-learn
-- **Greedy Optimization**: Maximize diversity scores through iterative placement
-- **Multi-Trial Runs**: Test 10+ configurations with different random seeds
-- **Automated Validation**: Ensure group sizes in [n, n+1] range
-- **Excel Reports**: Export results with assignment methodology tracking
+- **Stratified Grouping**: Preserve position category ratios using scikit-learn.
+- **Greedy Optimization**: Maximize diversity scores through iterative placement.
+- **Multi-Trial Runs**: Test 10+ configurations with different random seeds.
+- **Automated Validation**: Ensure group sizes in [n, n+1] range.
+- **Excel Reports**: Export results with assignment methodology tracking.
 
 ## Diversity Scoring
 ```python
@@ -26,9 +26,9 @@ Maximize total diversity score:
 TotalScore = Σ_{groups} [PositionScore + SectorScore]
 ```
 Where:
-- `PositionScore = 120 × U_p - 60 × D_p`  
+- `PositionScore = 120 × U_p - 60 × D_p`
   (U_p: unique positions, D_p: duplicate positions)
-- `SectorScore = 60 × U_s - 20 × D_s`  
+- `SectorScore = 60 × U_s - 20 × D_s`
   (U_s: unique sectors, D_s: duplicate sectors)
 
 ### Multi-Trial Optimization
@@ -42,13 +42,13 @@ for trial in range(TRIALS):
 ```
 
 ## Usage
-1. Install requirements:  
+1. Install requirements:
 `pip install -r requirements.txt`
-2. Launch app:  
+2. Launch app:
 `streamlit run app.py`
 3. Upload CSV or Excel with columns:
    - Position_Category
-   - Job_Sector  
+   - Job_Sector
    - Name
    - Email
 
@@ -89,12 +89,12 @@ Launches an automated pipeline UI that handles:
 ## Group Formation Process
 
 ### Step 1: Base Group Creation
-- **Optimized Sorting:**  
-  Participants are ordered to minimize:  
+- **Optimized Sorting:**
+  Participants are ordered to minimize:
   ```math
   Total Cost = \sum (position\_matches \times 100 + sector\_matches \times 33)
   ```
-- **Group Formation:**  
+- **Group Formation:**
   Initial groups are created from this optimized sequence to ensure maximum diversity
 
 ### Step 2: Remainder Handling
@@ -109,3 +109,5 @@ Launches an automated pipeline UI that handles:
 - pandas
 - numpy
 - scipy
+
+
