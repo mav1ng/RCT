@@ -86,7 +86,24 @@ def detect_column(columns, keywords):
 
 
 def auto_fill_categories(df, position_col, categories, group_size):
-    """Auto-fill categories with guaranteed minimum fulfillment"""
+    """
+    Auto-fill categories with guaranteed minimum fulfillment.
+
+    This function ensures that each category has at least the minimum number of participants
+    required to form groups of the specified size. It uses a two-phase approach to achieve this:
+    1. Priority filling based on a hierarchical structure.
+    2. Forcing minimum requirements by redistributing participants as needed.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing participant data.
+        position_col (str): Column name for position categories.
+        categories (dict): Dictionary mapping category names to lists of positions.
+        group_size (int): Target number of members per group.
+
+    Returns:
+        pd.DataFrame: Updated DataFrame with balanced categories.
+        dict: Updated categories dictionary.
+    """
     total_participants = len(df)
     min_members = total_participants // group_size  # Ceiling division
 
@@ -99,7 +116,16 @@ def auto_fill_categories(df, position_col, categories, group_size):
     lists = {cat: df_assigned.copy() for cat, df_assigned in manual_assignments.items()}
 
     def move_participant(source, target):
-        """Move one participant between categories"""
+        """
+        Move one participant from the source category to the target category.
+
+        Args:
+            source (str): Source category name.
+            target (str): Target category name.
+
+        Returns:
+            bool: True if a participant was moved, False otherwise.
+        """
         if len(lists[source]) == 0:
             return False
         participant = lists[source].sample(1)
