@@ -173,6 +173,21 @@ def auto_fill_categories(df, position_col, categories, group_size):
 
 
 def main():
+    """
+    Main function to handle the Streamlit web application for generating participant groups.
+
+    This function provides a user interface for uploading participant data, categorizing positions,
+    validating group sizes, and generating groups with optimal diversity. It uses Streamlit for the
+    web interface and the GroupProcessor class for group generation logic.
+
+    Steps:
+    1. Upload participant data in Excel format.
+    2. Auto-detect and allow user selection of relevant columns.
+    3. Categorize positions into predefined categories.
+    4. Validate group sizes and auto-fill categories if necessary.
+    5. Generate groups with optimal diversity.
+    6. Display and export the results.
+    """
     with st.container():
         uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
