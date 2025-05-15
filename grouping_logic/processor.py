@@ -242,7 +242,13 @@ class Processor:
 
     def _diversity_score(self, group_members, candidate):
         """
-        Score for adding candidate to group_members (more unique positions/sectors is better)
+        Calculate the diversity score for adding a candidate to a group.
+        Args:
+            group_members (list): List of members currently in the group.
+            candidate (dict): Candidate to be added to the group.
+
+        Returns:
+            int: Diversity score for adding the candidate.
         """
         positions = set(m[self.position_col] for m in group_members)
         sectors = set(m[self.job_sector_col] for m in group_members)
@@ -255,9 +261,13 @@ class Processor:
 
     def group_diversity_score(self, group):
         """
-        Diversity score for a group: 
-        +120 per unique position, -60 per duplicate
-        +60 per unique sector, -20 per duplicate
+        Calculate the diversity score for a group.
+
+        Args:
+            group (dict): A dictionary containing group members.
+
+        Returns:
+            int: The diversity score for the group.
         """
         members = group['Members']
         positions = [m[self.position_col] for m in members]
